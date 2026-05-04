@@ -58,6 +58,24 @@ def export_to_json(path: str):
         json.dump(data, f)
 
 
+def get_jobs_last_7_days() -> list:
+    """Return all jobs found in the past 7 days for the weekly digest."""
+    from datetime import timedelta
+    cutoff = (datetime.utcnow() - timedelta(days=7)).isoformat()
+    with _conn() as con:
+        rows = con.execute(
+            """SELECT title, company, url, source, found_at
+               FROM seen_jobs
+               WHERE found_at >= ? AND title != ''
+               ORDER BY found_at DESC""",
+            (cutoff,),
+        ).fetchall()
+    return [
+        {"title": r[0], "company": r[1], "url": r[2], "source": r[3], "found_at": r[4]}
+        for r in rows
+    ]
+
+
 def import_from_json(path: str):
     """Import seen job IDs from JSON into SQLite (used on cloud runner startup)."""
     try:
