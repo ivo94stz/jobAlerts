@@ -3,11 +3,11 @@ import logging
 from database import is_seen, mark_seen
 from filters import is_relevant
 from notifier import send_email, send_no_jobs_email
-from scrapers import jobagent, jobscout24, linkedin
+from scrapers import adzuna, jobagent, jobscout24, linkedin, xing
 
 log = logging.getLogger(__name__)
 
-SCRAPERS = [linkedin, jobscout24, jobagent]
+SCRAPERS = [linkedin, jobscout24, jobagent, xing, adzuna]
 
 
 def run_job_check(manual: bool = False):
