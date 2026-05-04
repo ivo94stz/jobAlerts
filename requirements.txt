@@ -4,3 +4,4 @@ lxml==5.3.0
 schedule==1.2.2
 python-dotenv==1.0.1
 pytz==2024.2
+langdetect==1.0.9

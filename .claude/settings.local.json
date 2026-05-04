@@ -10,7 +10,10 @@
       "Bash(git init *)",
       "Bash(mkdir -p scrapers data)",
       "Bash(del scrapers\\\\jobs_ch.py scrapers\\\\jobup.py scrapers\\\\indeed.py)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git rm *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git config *)"
     ]
   }
 }

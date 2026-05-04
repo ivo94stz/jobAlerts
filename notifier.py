@@ -10,6 +10,37 @@ from scrapers.base import Job
 log = logging.getLogger(__name__)
 
 
+def send_no_jobs_email():
+    """Send a 'nothing found' reply for manual runs."""
+    _send(
+        subject="JobAlerts — No new positions found",
+        html=f"""
+<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:20px;background:#f4f4f4;font-family:Arial,sans-serif;">
+  <div style="max-width:620px;margin:auto;">
+    <div style="background:#0a66c2;padding:20px 24px;border-radius:8px 8px 0 0;">
+      <h2 style="margin:0;color:#fff;font-size:20px;">JobAlerts — Manual Check</h2>
+      <p style="margin:4px 0 0;color:#cde4f7;font-size:13px;">
+        Talent Acquisition &amp; Recruiter — Kanton Zug &amp; Stadt Zürich
+      </p>
+    </div>
+    <div style="background:#fff;border-radius:0 0 8px 8px;padding:24px 20px;
+                box-shadow:0 2px 8px rgba(0,0,0,.08);text-align:center;">
+      <p style="font-size:15px;color:#444;margin:0 0 8px;">
+        No new positions matching your criteria were found at this time.
+      </p>
+      <p style="font-size:13px;color:#999;margin:0;">
+        LinkedIn &bull; jobscout24.ch &bull; jobagent.ch &mdash; all checked.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+""",
+    )
+
+
 def send_email(jobs: List[Job]):
     if not jobs:
         return
@@ -23,11 +54,20 @@ def send_email(jobs: List[Job]):
     msg["To"] = EMAIL_TO
     msg.attach(MIMEText(_build_html(jobs), "html", "utf-8"))
 
+    _send(subject=subject, html=_build_html(jobs))
+    log.info(f"Email sent: {count} job(s)")
+
+
+def _send(subject: str, html: str):
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = EMAIL_ADDRESS
+    msg["To"] = EMAIL_TO
+    msg.attach(MIMEText(html, "html", "utf-8"))
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
             server.sendmail(EMAIL_ADDRESS, [EMAIL_TO], msg.as_string())
-        log.info(f"Email sent: {count} job(s)")
     except Exception as e:
         log.error(f"Email failed: {e}")
 

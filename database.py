@@ -1,8 +1,9 @@
+import json
 import os
 import sqlite3
 from datetime import datetime
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "data", "seen_jobs.db")
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "seen_jobs.db")
 
 _CREATE = """
 CREATE TABLE IF NOT EXISTS seen_jobs (
@@ -46,3 +47,28 @@ def mark_seen(source: str, job_id: str, title: str = "", company: str = "", url:
             con.commit()
     except Exception as e:
         print(f"[db] Failed to mark seen: {e}")
+
+
+def export_to_json(path: str):
+    """Export seen (source, job_id) pairs to JSON for cloud persistence."""
+    with _conn() as con:
+        rows = con.execute("SELECT source, job_id FROM seen_jobs").fetchall()
+    data = [{"source": r[0], "job_id": r[1]} for r in rows]
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+
+
+def import_from_json(path: str):
+    """Import seen job IDs from JSON into SQLite (used on cloud runner startup)."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        with _conn() as con:
+            for item in data:
+                con.execute(
+                    "INSERT OR IGNORE INTO seen_jobs (source, job_id) VALUES (?, ?)",
+                    (item["source"], item["job_id"]),
+                )
+            con.commit()
+    except FileNotFoundError:
+        pass  # First run — no file yet

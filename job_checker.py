@@ -2,7 +2,7 @@ import logging
 
 from database import is_seen, mark_seen
 from filters import is_relevant
-from notifier import send_email
+from notifier import send_email, send_no_jobs_email
 from scrapers import jobagent, jobscout24, linkedin
 
 log = logging.getLogger(__name__)
@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 SCRAPERS = [linkedin, jobscout24, jobagent]
 
 
-def run_job_check():
+def run_job_check(manual: bool = False):
     new_jobs = []
 
     for scraper in SCRAPERS:
@@ -40,3 +40,6 @@ def run_job_check():
 
     if new_jobs:
         send_email(new_jobs)
+    elif manual:
+        log.info("Manual run — sending 'no new jobs' notification.")
+        send_no_jobs_email()
