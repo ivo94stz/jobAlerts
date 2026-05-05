@@ -18,9 +18,15 @@
     "sourcer",
     "sourcing"
   ],
-  "days": [1, 2, 3, 4, 5],
+  "days": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
   "start_hour_cest": 7,
-  "end_hour_cest": 18,
+  "end_hour_cest": 17,
   "interval_hours": 2,
-  "updated_at": "2024-01-01T00:00:00Z"
+  "updated_at": "2026-05-05T18:32:22.836Z"
 }
