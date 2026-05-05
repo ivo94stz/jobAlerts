@@ -1,7 +1,6 @@
 import logging
-import re
 
-from database import is_seen, mark_seen
+from database import is_seen, is_seen_by_content, mark_seen, _normalize
 from filters import is_relevant
 from notifier import send_email, send_no_jobs_email, send_weekly_digest
 from scrapers import adzuna, jobagent, jobscout24, linkedin, talent, xing
@@ -22,7 +21,10 @@ def run_job_check(manual: bool = False):
             log.info(f"[{name}] fetched {len(jobs)} listing(s)")
 
             for job in jobs:
-                already_seen = is_seen(job.source, job.job_id)
+                already_seen = (
+                    is_seen(job.source, job.job_id)
+                    or is_seen_by_content(job.title, job.company)
+                )
                 mark_seen(job.source, job.job_id, job.title, job.company, job.url)
 
                 if already_seen:
@@ -70,14 +72,3 @@ def _dedup_cross_site(jobs: list) -> list:
     return result
 
 
-_LEGAL_SUFFIXES = re.compile(
-    r"\b(ag|gmbh|ltd|sa|llc|inc|corp|se|nv|bv|plc|srl|oy|ab|as)\b", re.I
-)
-
-
-def _normalize(text: str) -> str:
-    text = text.lower().strip()
-    text = _LEGAL_SUFFIXES.sub("", text)
-    text = re.sub(r"[^\w\s]", "", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text

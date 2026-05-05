@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import sqlite3
 from datetime import datetime
 
@@ -17,6 +18,22 @@ CREATE TABLE IF NOT EXISTS seen_jobs (
     UNIQUE(source, job_id)
 )
 """
+
+_LEGAL_SUFFIXES = re.compile(
+    r"\b(ag|gmbh|ltd|sa|llc|inc|corp|se|nv|bv|plc|srl|oy|ab|as)\b", re.I
+)
+
+
+def _normalize(text: str) -> str:
+    text = (text or "").lower().strip()
+    text = _LEGAL_SUFFIXES.sub("", text)
+    text = re.sub(r"[^\w\s]", "", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _content_key(title: str, company: str) -> str:
+    """Stable key used for cross-site deduplication."""
+    return f"{_normalize(title)}||{_normalize(company)}"
 
 
 def _conn():
@@ -36,24 +53,57 @@ def is_seen(source: str, job_id: str) -> bool:
     return row is not None
 
 
+def is_seen_by_content(title: str, company: str) -> bool:
+    """Return True if a job with the same normalised title+company was already
+    seen from *any* source.  Used to suppress cross-site duplicates across runs."""
+    key = _content_key(title, company)
+    if not key.replace("||", "").strip():
+        return False
+    with _conn() as con:
+        row = con.execute(
+            "SELECT 1 FROM seen_jobs WHERE content_key = ?", (key,)
+        ).fetchone()
+    return row is not None
+
+
 def mark_seen(source: str, job_id: str, title: str = "", company: str = "", url: str = ""):
     try:
+        key = _content_key(title, company)
         with _conn() as con:
+            # Ensure content_key column exists (added after initial deploy)
+            _ensure_content_key_column(con)
             con.execute(
-                """INSERT OR IGNORE INTO seen_jobs (source, job_id, title, company, url, found_at)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (source, job_id, title, company, url, datetime.utcnow().isoformat()),
+                """INSERT OR IGNORE INTO seen_jobs
+                       (source, job_id, title, company, url, found_at, content_key)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (source, job_id, title, company, url, datetime.utcnow().isoformat(), key),
             )
             con.commit()
     except Exception as e:
         print(f"[db] Failed to mark seen: {e}")
 
 
+def _ensure_content_key_column(con: sqlite3.Connection) -> None:
+    cols = {r[1] for r in con.execute("PRAGMA table_info(seen_jobs)").fetchall()}
+    if "content_key" not in cols:
+        con.execute("ALTER TABLE seen_jobs ADD COLUMN content_key TEXT")
+        con.execute(
+            "CREATE INDEX IF NOT EXISTS idx_content_key ON seen_jobs(content_key)"
+        )
+        con.commit()
+
+
 def export_to_json(path: str):
-    """Export seen (source, job_id) pairs to JSON for cloud persistence."""
+    """Export seen jobs to JSON for cloud persistence.
+    Includes title+company so cross-site dedup survives across runs."""
     with _conn() as con:
-        rows = con.execute("SELECT source, job_id FROM seen_jobs").fetchall()
-    data = [{"source": r[0], "job_id": r[1]} for r in rows]
+        rows = con.execute(
+            "SELECT source, job_id, title, company FROM seen_jobs"
+        ).fetchall()
+    data = [
+        {"source": r[0], "job_id": r[1], "title": r[2] or "", "company": r[3] or ""}
+        for r in rows
+    ]
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f)
 
@@ -82,10 +132,16 @@ def import_from_json(path: str):
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
         with _conn() as con:
+            _ensure_content_key_column(con)
             for item in data:
+                title = item.get("title", "")
+                company = item.get("company", "")
+                key = _content_key(title, company)
                 con.execute(
-                    "INSERT OR IGNORE INTO seen_jobs (source, job_id) VALUES (?, ?)",
-                    (item["source"], item["job_id"]),
+                    """INSERT OR IGNORE INTO seen_jobs
+                           (source, job_id, title, company, content_key)
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (item["source"], item["job_id"], title, company, key),
                 )
             con.commit()
     except FileNotFoundError:

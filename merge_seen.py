@@ -18,7 +18,8 @@ def merge(path: str = "seen_jobs.json") -> None:
     with open(path, encoding="utf-8") as f:
         local = json.load(f)
 
-    # Union by (source, job_id); local (this run) wins on duplicates
+    # Union by (source, job_id); local (this run) wins — it may have richer
+    # title/company data that the origin entry lacks.
     merged: dict = {(d["source"], d["job_id"]): d for d in origin}
     merged.update({(d["source"], d["job_id"]): d for d in local})
     result = list(merged.values())
