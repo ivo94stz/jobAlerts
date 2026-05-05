@@ -112,6 +112,16 @@
       background: var(--card2); border-radius: 16px; padding: 6px 10px 6px 12px;
       font-size: 14px;
     }
+    .chip-text {
+      cursor: pointer; border-bottom: 1px dashed var(--text3);
+      transition: border-color .15s;
+    }
+    .chip-text:hover { border-bottom-color: var(--text2); }
+    .chip-edit {
+      background: none; border: none; border-bottom: 1px solid var(--blue);
+      color: var(--text); font: 14px -apple-system, sans-serif;
+      outline: none; width: 110px; padding: 0;
+    }
     .chip-del {
       background: none; border: none; color: var(--text3);
       cursor: pointer; font-size: 18px; line-height: 1; padding: 0;
@@ -374,11 +384,40 @@ function renderKeywords() {
     const chip = document.createElement('div');
     chip.className = 'chip';
     chip.innerHTML =
-      `<span>${kw}</span>` +
+      `<span class="chip-text" onclick="editKeyword(${i})" title="Tap to edit">${kw}</span>` +
       `<button class="chip-del" onclick="removeKeyword(${i})" title="Remove">×</button>`;
     el.appendChild(chip);
   });
 }
+
+function editKeyword(i) {
+  const chip = document.getElementById('chips').children[i];
+  const current = state.keywords[i];
+  chip.innerHTML =
+    `<input class="chip-edit" value="${current}"
+       onkeydown="confirmEdit(event,${i},this)"
+       onblur="confirmEditBlur(${i},this)">` +
+    `<button class="chip-del" onclick="removeKeyword(${i})" title="Remove">×</button>`;
+  const inp = chip.querySelector('input');
+  inp.focus();
+  inp.select();
+}
+
+function _applyEdit(i, input) {
+  const val = input.value.trim().toLowerCase();
+  if (val && val !== state.keywords[i]) {
+    if (state.keywords.includes(val)) { toast('Keyword already exists', 'error'); }
+    else { state.keywords[i] = val; persist(); }
+  }
+  renderKeywords();
+}
+
+function confirmEdit(e, i, input) {
+  if (e.key === 'Enter')  { e.preventDefault(); _applyEdit(i, input); }
+  if (e.key === 'Escape') { renderKeywords(); }
+}
+
+function confirmEditBlur(i, input) { _applyEdit(i, input); }
 
 function renderSchedule() {
   document.getElementById('active-toggle').checked  = state.active;
