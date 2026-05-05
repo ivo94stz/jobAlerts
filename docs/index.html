@@ -190,6 +190,13 @@
     }
 
     .last-saved { text-align: center; font-size: 12px; color: var(--text3); padding: 10px 0 0; }
+
+    .run-status {
+      text-align: center; font-size: 13px; color: var(--text2);
+      padding: 2px 0 4px; min-height: 20px;
+    }
+    .run-status.ok  { color: var(--green); }
+    .run-status.err { color: var(--red); }
   </style>
 </head>
 <body>
@@ -277,6 +284,7 @@
   <div class="card">
     <div class="actions-wrap">
       <button class="btn btn-run"  id="btn-run"  onclick="runNow()">▶ Run Now</button>
+      <p class="run-status" id="run-status"></p>
       <button class="btn btn-save" id="btn-save" onclick="saveSettings()">Save Settings</button>
     </div>
   </div>
@@ -529,28 +537,123 @@ function b64(str) {
   return btoa(bin);
 }
 
+// ── Run Now + polling ───────────────────────────────────────────────────────
+
+let _pollTimer    = null;
+let _elapsedTimer = null;
+let _runStart     = 0;
+
 async function runNow() {
   if (!state.pat) { toast('Save your GitHub token first', 'error'); return; }
-  const btn = document.getElementById('btn-run');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Starting…';
+  setRunUI('starting');
   try {
     const res = await fetch(
       `${API}/repos/${REPO}/actions/workflows/job_alerts.yml/dispatches`,
       { method: 'POST', headers: headers(), body: JSON.stringify({ ref: 'master' }) }
     );
-    if (res.status === 204) {
-      toast('Workflow started — check email in ~2 min', 'success');
-    } else {
+    if (res.status !== 204) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || `HTTP ${res.status}`);
     }
+    _runStart = Date.now();
+    localStorage.setItem('jb_run_start', _runStart);
+    setRunUI('queued');
+    setTimeout(startPolling, 6000); // give GitHub 6s to register the run
   } catch (e) {
+    setRunUI('idle');
     toast('Error: ' + e.message, 'error');
   }
-  btn.disabled = false;
-  btn.innerHTML = '▶ Run Now';
 }
+
+function startPolling() {
+  clearInterval(_pollTimer);
+  pollOnce();
+  _pollTimer = setInterval(pollOnce, 10000);
+}
+
+async function pollOnce() {
+  if (!state.pat) return;
+  try {
+    const res = await fetch(
+      `${API}/repos/${REPO}/actions/workflows/job_alerts.yml/runs?per_page=10&event=workflow_dispatch`,
+      { headers: headers() }
+    );
+    if (!res.ok) return;
+    const { workflow_runs: runs = [] } = await res.json();
+
+    // Find the run we triggered (created after we clicked, with ≤60s tolerance)
+    const since = (_runStart || parseInt(localStorage.getItem('jb_run_start') || '0')) - 60000;
+    const run = runs.find(r => new Date(r.created_at).getTime() >= since);
+    if (!run) return;
+
+    if (run.status === 'completed') {
+      clearInterval(_pollTimer);
+      stopElapsed();
+      localStorage.removeItem('jb_run_start');
+      setRunUI(run.conclusion === 'success' ? 'success' : 'failed');
+    } else {
+      setRunUI(run.status); // 'queued' or 'in_progress'
+    }
+  } catch (_) { /* ignore transient errors */ }
+}
+
+function setRunUI(status) {
+  const btn = document.getElementById('btn-run');
+  const lbl = document.getElementById('run-status');
+  lbl.className = 'run-status';
+
+  switch (status) {
+    case 'starting':
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>Starting…';
+      lbl.textContent = '';
+      break;
+    case 'queued':
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>Queued…';
+      lbl.textContent = 'Waiting for a runner…';
+      startElapsed();
+      break;
+    case 'in_progress':
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>Running…';
+      startElapsed();
+      break;
+    case 'success':
+      btn.disabled = false;
+      btn.innerHTML = '▶ Run Now';
+      lbl.className = 'run-status ok';
+      lbl.textContent = '✓ Done — email sent';
+      setTimeout(() => { if (lbl.textContent.startsWith('✓')) lbl.textContent = ''; }, 8000);
+      break;
+    case 'failed':
+      btn.disabled = false;
+      btn.innerHTML = '▶ Run Now';
+      lbl.className = 'run-status err';
+      lbl.textContent = '✕ Workflow failed — check GitHub Actions';
+      break;
+    case 'idle':
+    default:
+      btn.disabled = false;
+      btn.innerHTML = '▶ Run Now';
+      lbl.textContent = '';
+      break;
+  }
+}
+
+function startElapsed() {
+  clearInterval(_elapsedTimer);
+  _elapsedTimer = setInterval(() => {
+    const btn = document.getElementById('btn-run');
+    if (!btn.disabled) { clearInterval(_elapsedTimer); return; }
+    const secs = Math.floor((Date.now() - (_runStart || parseInt(localStorage.getItem('jb_run_start') || Date.now()))) / 1000);
+    const m = Math.floor(secs / 60), s = secs % 60;
+    const lbl = document.getElementById('run-status');
+    lbl.textContent = (m > 0 ? `${m}m ` : '') + `${s}s elapsed`;
+  }, 1000);
+}
+
+function stopElapsed() { clearInterval(_elapsedTimer); }
 
 async function saveSettings() {
   if (!state.pat) { toast('Save your GitHub token first', 'error'); return; }
@@ -614,6 +717,17 @@ function toast(msg, type = 'info') {
 
 // ── Boot ────────────────────────────────────────────────────────────────────
 init();
+
+// Resume polling if a run was in progress when the app was last closed
+(function checkPendingRun() {
+  const stored = localStorage.getItem('jb_run_start');
+  if (!stored) return;
+  const age = Date.now() - parseInt(stored);
+  if (age > 20 * 60 * 1000) { localStorage.removeItem('jb_run_start'); return; } // >20 min → stale
+  _runStart = parseInt(stored);
+  setRunUI('queued');
+  setTimeout(startPolling, 2000);
+})();
 </script>
 </body>
 </html>
