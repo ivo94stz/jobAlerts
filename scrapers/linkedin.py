@@ -65,8 +65,11 @@ def _fetch(cfg: dict) -> list:
             if not title_el or not link_el:
                 continue
 
-            href = link_el.get("href", "").split("?")[0]
-            match = re.search(r"/jobs/view/(\d+)", href)
+            href = link_el.get("href", "").split("?")[0].rstrip("/")
+            # LinkedIn job IDs are a long number; they appear either directly
+            # (/jobs/view/4408298796) or at the end of a slug
+            # (/jobs/view/talent-acq-at-company-4408298796).
+            match = re.search(r"(\d{7,})$", href)
             job_id = match.group(1) if match else href[-20:]
 
             jobs.append(

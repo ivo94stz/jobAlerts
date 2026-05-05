@@ -9,6 +9,12 @@ on:
   workflow_dispatch:
     # Manual trigger — available from GitHub website or GitHub mobile app (24/7)
 
+# Prevent concurrent runs from clobbering each other's seen_jobs.json push.
+# If a run is already in progress, the new one waits (cancel-in-progress: false).
+concurrency:
+  group: job-alerts
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -21,6 +27,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          # Fetch full history so git show origin/master:seen_jobs.json works
+          fetch-depth: 0
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -58,6 +66,18 @@ jobs:
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
+
+          # Merge local seen_jobs.json with any entries pushed by a concurrent run
+          # (edge case: workflow_dispatch while a scheduled run is finishing)
+          git fetch origin master
+          python merge_seen.py
+
           git add seen_jobs.json
-          git diff --cached --quiet || git commit -m "chore: update seen jobs [skip ci]"
+          git diff --cached --quiet && echo "No changes to seen_jobs.json" && exit 0
+
+          git commit -m "chore: update seen jobs [skip ci]"
+
+          # Rebase our commit on top of any remote changes; -X ours resolves
+          # seen_jobs.json conflicts in our favour (we merged from origin above).
+          git pull --rebase -X ours origin master
           git push
