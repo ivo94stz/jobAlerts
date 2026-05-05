@@ -2,7 +2,7 @@
   "name": "JobAlerts Control",
   "short_name": "JobAlerts",
   "description": "Control panel for JobAlerts automation",
-  "start_url": "/JobAlerts/",
+  "start_url": "/jobAlerts/",
   "display": "standalone",
   "background_color": "#1c1c1e",
   "theme_color": "#1c1c1e",
