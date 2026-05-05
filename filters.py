@@ -1,4 +1,6 @@
+import json
 import logging
+import os
 import re
 
 from config import ACCEPTED_LOCATIONS, ENGLISH_REQUIRED_PATTERNS, GERMAN_MANDATORY_PATTERNS
@@ -13,7 +15,7 @@ try:
 except ImportError:
     _LANGDETECT = False
 
-RELEVANT_TITLE_KEYWORDS = [
+_DEFAULT_KEYWORDS = [
     "talent acquisition",
     "talent partner",
     "talent manager",
@@ -31,6 +33,20 @@ RELEVANT_TITLE_KEYWORDS = [
     "sourcer",
     "sourcing",
 ]
+
+def _load_keywords() -> list[str]:
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schedule_config.json")
+    if os.path.exists(path):
+        try:
+            with open(path) as f:
+                kws = [k.lower().strip() for k in json.load(f).get("keywords", []) if k.strip()]
+            if kws:
+                return kws
+        except Exception:
+            pass
+    return _DEFAULT_KEYWORDS
+
+RELEVANT_TITLE_KEYWORDS = _load_keywords()
 
 # Phrases that signal the posting is written in German
 _GERMAN_WRITING = [

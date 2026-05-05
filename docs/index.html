@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="JobAlerts">
+  <meta name="theme-color" content="#1c1c1e">
+  <title>JobAlerts</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    :root {
+      --bg:     #1c1c1e;
+      --card:   #2c2c2e;
+      --card2:  #3a3a3c;
+      --border: #3a3a3c;
+      --blue:   #0a84ff;
+      --green:  #30d158;
+      --yellow: #ffd60a;
+      --red:    #ff453a;
+      --text:   #ffffff;
+      --text2:  rgba(235,235,245,0.6);
+      --text3:  rgba(235,235,245,0.3);
+      --r:      12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .app { max-width: 480px; margin: 0 auto; padding: 0 16px 48px; }
+
+    header { padding: 24px 0 6px; text-align: center; }
+    header h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+    header p  { font-size: 13px; color: var(--text2); margin-top: 2px; }
+
+    /* Section label */
+    .section-label {
+      font-size: 12px; font-weight: 600; color: var(--text2);
+      text-transform: uppercase; letter-spacing: 0.6px;
+      padding: 18px 4px 6px;
+    }
+
+    /* Card */
+    .card { background: var(--card); border-radius: var(--r); overflow: hidden; }
+
+    .row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 16px;
+      border-top: 1px solid var(--border);
+    }
+    .row:first-child { border-top: none; }
+    .row-label { font-size: 16px; flex: 1; }
+
+    /* Inputs */
+    input[type="text"], input[type="password"] {
+      background: var(--card2); border: none; border-radius: 8px;
+      color: var(--text); font: 15px/1 -apple-system, sans-serif;
+      padding: 10px 12px; width: 100%; outline: none;
+    }
+    input::placeholder { color: var(--text3); }
+
+    select {
+      background: var(--card2); border: none; border-radius: 8px;
+      color: var(--text); font: 15px/1 -apple-system, sans-serif;
+      padding: 10px 12px; outline: none; -webkit-appearance: none; cursor: pointer;
+    }
+
+    /* Toggle */
+    .toggle { position: relative; width: 51px; height: 31px; flex-shrink: 0; cursor: pointer; }
+    .toggle input { display: none; }
+    .slider {
+      position: absolute; inset: 0; background: var(--card2);
+      border-radius: 16px; transition: background .2s;
+    }
+    .slider::before {
+      content: ''; position: absolute; width: 27px; height: 27px;
+      left: 2px; top: 2px; background: #fff; border-radius: 50%;
+      transition: transform .2s; box-shadow: 0 2px 6px rgba(0,0,0,.4);
+    }
+    .toggle input:checked + .slider { background: var(--green); }
+    .toggle input:checked + .slider::before { transform: translateX(20px); }
+
+    /* Days */
+    .days-wrap { padding: 4px 16px 14px; }
+    .days-row  { display: flex; gap: 8px; flex-wrap: wrap; }
+    .day-btn {
+      width: 40px; height: 40px; border-radius: 50%; border: none;
+      background: var(--card2); color: var(--text2);
+      font: 600 13px -apple-system, sans-serif;
+      cursor: pointer; transition: background .15s, color .15s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .day-btn.active { background: var(--blue); color: #fff; }
+
+    /* Hours */
+    .hours-flex { display: flex; align-items: center; gap: 8px; }
+    .hours-flex select { flex: 1; }
+    .hours-flex span { color: var(--text2); font-size: 14px; }
+
+    /* Keywords */
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px 4px; }
+    .chip {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--card2); border-radius: 16px; padding: 6px 10px 6px 12px;
+      font-size: 14px;
+    }
+    .chip-del {
+      background: none; border: none; color: var(--text3);
+      cursor: pointer; font-size: 18px; line-height: 1; padding: 0;
+      transition: color .15s;
+    }
+    .chip-del:hover { color: var(--red); }
+    .add-kw-row { display: flex; gap: 8px; padding: 10px 16px 14px; }
+    .add-kw-row input { flex: 1; }
+
+    /* Buttons */
+    .btn {
+      border: none; border-radius: 10px; cursor: pointer;
+      font: 600 16px -apple-system, sans-serif;
+      padding: 15px; text-align: center; width: 100%;
+      transition: opacity .15s, transform .1s;
+    }
+    .btn:active  { opacity: .7; transform: scale(.98); }
+    .btn:disabled { opacity: .4; cursor: default; transform: none; }
+    .btn-run  { background: var(--yellow); color: #000; }
+    .btn-save { background: var(--blue);   color: #fff; }
+
+    .btn-sm {
+      background: var(--blue); color: #fff; border: none; border-radius: 8px;
+      cursor: pointer; font: 600 14px -apple-system, sans-serif;
+      padding: 9px 14px; white-space: nowrap; transition: opacity .15s;
+    }
+    .btn-sm:active { opacity: .7; }
+
+    .actions-wrap { display: flex; flex-direction: column; gap: 10px; padding: 16px; }
+
+    /* PAT */
+    .pat-display {
+      font: 13px 'SF Mono', 'Courier New', monospace;
+      color: var(--text2); flex: 1; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+    .pat-input-area { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+    .hint { font-size: 12px; color: var(--text3); line-height: 1.4; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: calc(env(safe-area-inset-bottom) + 24px);
+      left: 50%; transform: translateX(-50%) translateY(0);
+      background: rgba(44,44,46,0.96);
+      color: #fff; padding: 12px 20px; border-radius: 12px;
+      font-size: 14px; font-weight: 500;
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      z-index: 999; transition: opacity .3s, transform .3s;
+      white-space: nowrap; max-width: 90vw;
+      box-shadow: 0 4px 24px rgba(0,0,0,.5);
+    }
+    .toast.hidden { opacity: 0; transform: translateX(-50%) translateY(10px); pointer-events: none; }
+    .toast.success { border-left: 3px solid var(--green); }
+    .toast.error   { border-left: 3px solid var(--red); }
+    .toast.info    { border-left: 3px solid var(--blue); }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff; border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: inline-block; vertical-align: middle; margin-right: 8px;
+    }
+
+    .last-saved { text-align: center; font-size: 12px; color: var(--text3); padding: 10px 0 0; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <h1>JobAlerts</h1>
+    <p>Control Panel</p>
+  </header>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- ── GitHub Token ─────────────────────────────────────── -->
+  <div class="section-label">GitHub Access</div>
+  <div class="card">
+    <div class="row" id="pat-status-row" style="display:none">
+      <div class="status-dot"></div>
+      <span class="pat-display" id="pat-display"></span>
+      <button class="btn-sm" onclick="showPatInput()">Change</button>
+    </div>
+    <div class="pat-input-area" id="pat-input-area">
+      <input type="password" id="pat-input"
+             placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off"
+             onkeydown="if(event.key==='Enter') savePat()">
+      <button class="btn-sm" onclick="savePat()">Save Token</button>
+      <p class="hint">Enter once — stored only on this device.<br>
+        Needs <strong>repo</strong> + <strong>workflow</strong> permissions.</p>
+    </div>
+  </div>
+
+  <!-- ── Keywords ────────────────────────────────────────── -->
+  <div class="section-label">Job Title Keywords</div>
+  <div class="card">
+    <div class="chips" id="chips"></div>
+    <div class="add-kw-row">
+      <input type="text" id="new-kw" placeholder="e.g. people operations"
+             onkeydown="if(event.key==='Enter') addKeyword()">
+      <button class="btn-sm" onclick="addKeyword()">Add</button>
+    </div>
+  </div>
+
+  <!-- ── Schedule ─────────────────────────────────────────── -->
+  <div class="section-label">Schedule</div>
+  <div class="card">
+    <div class="row">
+      <span class="row-label">Active</span>
+      <label class="toggle">
+        <input type="checkbox" id="active-toggle" onchange="onActiveChange()">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="row" style="padding-bottom:6px">
+      <span class="row-label">Days</span>
+    </div>
+    <div class="days-wrap">
+      <div class="days-row" id="days-row"></div>
+    </div>
+
+    <div class="row">
+      <span class="row-label">Hours (CEST)</span>
+      <div class="hours-flex">
+        <select id="start-hour" onchange="onHoursChange()"></select>
+        <span>–</span>
+        <select id="end-hour" onchange="onHoursChange()"></select>
+      </div>
+    </div>
+
+    <div class="row">
+      <span class="row-label">Check every</span>
+      <select id="interval" onchange="onIntervalChange()">
+        <option value="1">1 hour</option>
+        <option value="2">2 hours</option>
+        <option value="3">3 hours</option>
+        <option value="4">4 hours</option>
+        <option value="6">6 hours</option>
+        <option value="8">8 hours</option>
+        <option value="12">12 hours</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- ── Actions ──────────────────────────────────────────── -->
+  <div class="section-label">Actions</div>
+  <div class="card">
+    <div class="actions-wrap">
+      <button class="btn btn-run"  id="btn-run"  onclick="runNow()">▶ Run Now</button>
+      <button class="btn btn-save" id="btn-save" onclick="saveSettings()">Save Settings</button>
+    </div>
+  </div>
+
+  <p class="last-saved" id="last-saved"></p>
+</div>
+
+<script>
+const REPO        = 'ivo94stz/JobAlerts';
+const CONFIG_FILE = 'schedule_config.json';
+const API         = 'https://api.github.com';
+const DAY_LABELS  = ['M','T','W','T','F','S','S'];
+const DAY_NAMES   = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+let state = {
+  pat: '', keywords: [],
+  days: [1,2,3,4,5],
+  start_hour: 7, end_hour: 17, interval: 2,
+  active: true
+};
+
+// ── Init ────────────────────────────────────────────────────────────────────
+
+function init() {
+  loadLocal();
+  buildDayButtons();
+  buildHourSelects();
+  renderAll();
+}
+
+function loadLocal() {
+  state.pat      = localStorage.getItem('jb_pat') || '';
+  state.keywords = JSON.parse(localStorage.getItem('jb_keywords') || 'null') || [
+    'talent acquisition','talent partner','talent manager','talent specialist',
+    'recruiter','recruiting','recruitment','head of talent',
+    'hr partner','hr specialist','hr manager','human resources',
+    'people partner','people acquisition','sourcer','sourcing'
+  ];
+  state.days       = JSON.parse(localStorage.getItem('jb_days') || '[1,2,3,4,5]');
+  state.start_hour = +( localStorage.getItem('jb_start')    || 7  );
+  state.end_hour   = +( localStorage.getItem('jb_end')      || 17 );
+  state.interval   = +( localStorage.getItem('jb_interval') || 2  );
+  state.active     = localStorage.getItem('jb_active') !== 'false';
+}
+
+function persist() {
+  localStorage.setItem('jb_pat',      state.pat);
+  localStorage.setItem('jb_keywords', JSON.stringify(state.keywords));
+  localStorage.setItem('jb_days',     JSON.stringify(state.days));
+  localStorage.setItem('jb_start',    state.start_hour);
+  localStorage.setItem('jb_end',      state.end_hour);
+  localStorage.setItem('jb_interval', state.interval);
+  localStorage.setItem('jb_active',   state.active);
+}
+
+// ── Build static UI ─────────────────────────────────────────────────────────
+
+function buildDayButtons() {
+  const row = document.getElementById('days-row');
+  for (let i = 1; i <= 7; i++) {
+    const btn = document.createElement('button');
+    btn.className   = 'day-btn' + (state.days.includes(i) ? ' active' : '');
+    btn.textContent = DAY_LABELS[i - 1];
+    btn.title       = DAY_NAMES[i - 1];
+    btn.dataset.day = i;
+    btn.onclick = () => toggleDay(i, btn);
+    row.appendChild(btn);
+  }
+}
+
+function buildHourSelects() {
+  ['start-hour', 'end-hour'].forEach(id => {
+    const el = document.getElementById(id);
+    for (let h = 0; h < 24; h++) {
+      el.add(new Option(String(h).padStart(2,'0') + ':00', h));
+    }
+  });
+  document.getElementById('start-hour').value = state.start_hour;
+  document.getElementById('end-hour').value   = state.end_hour;
+}
+
+// ── Render ──────────────────────────────────────────────────────────────────
+
+function renderAll() {
+  renderPat();
+  renderKeywords();
+  renderSchedule();
+  renderLastSaved();
+}
+
+function renderPat() {
+  const has = !!state.pat;
+  document.getElementById('pat-status-row').style.display = has ? 'flex' : 'none';
+  document.getElementById('pat-input-area').style.display = has ? 'none' : 'flex';
+  if (has) {
+    document.getElementById('pat-display').textContent =
+      state.pat.slice(0, 8) + '••••••••••••';
+  }
+}
+
+function renderKeywords() {
+  const el = document.getElementById('chips');
+  el.innerHTML = '';
+  state.keywords.forEach((kw, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.innerHTML =
+      `<span>${kw}</span>` +
+      `<button class="chip-del" onclick="removeKeyword(${i})" title="Remove">×</button>`;
+    el.appendChild(chip);
+  });
+}
+
+function renderSchedule() {
+  document.getElementById('active-toggle').checked  = state.active;
+  document.getElementById('interval').value         = state.interval;
+  document.getElementById('start-hour').value       = state.start_hour;
+  document.getElementById('end-hour').value         = state.end_hour;
+  document.querySelectorAll('.day-btn').forEach(btn => {
+    btn.classList.toggle('active', state.days.includes(+btn.dataset.day));
+  });
+}
+
+function renderLastSaved() {
+  const ts = localStorage.getItem('jb_last_saved');
+  document.getElementById('last-saved').textContent =
+    ts ? 'Last saved to GitHub: ' + new Date(ts).toLocaleString() : '';
+}
+
+// ── User actions ────────────────────────────────────────────────────────────
+
+function savePat() {
+  const val = document.getElementById('pat-input').value.trim();
+  if (!val.startsWith('ghp_') && !val.startsWith('github_pat_')) {
+    toast('Token must start with ghp_ or github_pat_', 'error'); return;
+  }
+  state.pat = val;
+  document.getElementById('pat-input').value = '';
+  persist();
+  renderPat();
+  toast('Token saved on this device', 'success');
+}
+
+function showPatInput() {
+  document.getElementById('pat-status-row').style.display = 'none';
+  document.getElementById('pat-input-area').style.display = 'flex';
+  document.getElementById('pat-input').focus();
+}
+
+function toggleDay(day, btn) {
+  const idx = state.days.indexOf(day);
+  if (idx > -1) {
+    if (state.days.length === 1) { toast('Select at least one day', 'error'); return; }
+    state.days.splice(idx, 1);
+    btn.classList.remove('active');
+  } else {
+    state.days.push(day);
+    state.days.sort((a, b) => a - b);
+    btn.classList.add('active');
+  }
+  persist();
+}
+
+function onActiveChange() {
+  state.active = document.getElementById('active-toggle').checked;
+  persist();
+}
+
+function onHoursChange() {
+  const s = +document.getElementById('start-hour').value;
+  const e = +document.getElementById('end-hour').value;
+  if (e <= s) {
+    toast('End hour must be after start hour', 'error');
+    document.getElementById('start-hour').value = state.start_hour;
+    document.getElementById('end-hour').value   = state.end_hour;
+    return;
+  }
+  state.start_hour = s;
+  state.end_hour   = e;
+  persist();
+}
+
+function onIntervalChange() {
+  state.interval = +document.getElementById('interval').value;
+  persist();
+}
+
+function addKeyword() {
+  const input = document.getElementById('new-kw');
+  const kw = input.value.trim().toLowerCase();
+  if (!kw) return;
+  if (state.keywords.includes(kw)) { toast('Keyword already in list', 'error'); return; }
+  state.keywords.push(kw);
+  input.value = '';
+  persist();
+  renderKeywords();
+}
+
+function removeKeyword(i) {
+  if (state.keywords.length <= 1) { toast('Keep at least one keyword', 'error'); return; }
+  state.keywords.splice(i, 1);
+  persist();
+  renderKeywords();
+}
+
+// ── GitHub API ──────────────────────────────────────────────────────────────
+
+function headers() {
+  return {
+    'Authorization': `Bearer ${state.pat}`,
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'Content-Type': 'application/json'
+  };
+}
+
+function b64(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
+async function runNow() {
+  if (!state.pat) { toast('Save your GitHub token first', 'error'); return; }
+  const btn = document.getElementById('btn-run');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Starting…';
+  try {
+    const res = await fetch(
+      `${API}/repos/${REPO}/actions/workflows/job_alerts.yml/dispatches`,
+      { method: 'POST', headers: headers(), body: JSON.stringify({ ref: 'master' }) }
+    );
+    if (res.status === 204) {
+      toast('Workflow started — check email in ~2 min', 'success');
+    } else {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+  } catch (e) {
+    toast('Error: ' + e.message, 'error');
+  }
+  btn.disabled = false;
+  btn.innerHTML = '▶ Run Now';
+}
+
+async function saveSettings() {
+  if (!state.pat) { toast('Save your GitHub token first', 'error'); return; }
+
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Saving…';
+
+  const config = {
+    active:          state.active,
+    keywords:        state.keywords,
+    days:            state.days,
+    start_hour_cest: state.start_hour,
+    end_hour_cest:   state.end_hour,
+    interval_hours:  state.interval,
+    updated_at:      new Date().toISOString()
+  };
+
+  try {
+    // Get current SHA so we can update (not create) the file
+    let sha = null;
+    const cur = await fetch(`${API}/repos/${REPO}/contents/${CONFIG_FILE}`, { headers: headers() });
+    if (cur.ok) sha = (await cur.json()).sha;
+
+    const body = {
+      message: 'Update schedule config via PWA',
+      content: b64(JSON.stringify(config, null, 2))
+    };
+    if (sha) body.sha = sha;
+
+    const res = await fetch(`${API}/repos/${REPO}/contents/${CONFIG_FILE}`, {
+      method: 'PUT', headers: headers(), body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+
+    localStorage.setItem('jb_last_saved', new Date().toISOString());
+    renderLastSaved();
+    toast('Settings saved to GitHub', 'success');
+  } catch (e) {
+    toast('Error: ' + e.message, 'error');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = 'Save Settings';
+}
+
+// ── Toast ───────────────────────────────────────────────────────────────────
+
+let _toastTimer = null;
+function toast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast ${type}`;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { el.className = 'toast hidden'; }, 3500);
+}
+
+// ── Boot ────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
