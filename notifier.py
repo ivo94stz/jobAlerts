@@ -10,8 +10,9 @@ from scrapers.base import Job
 log = logging.getLogger(__name__)
 
 
-def send_no_jobs_email():
+def send_no_jobs_email(sources: list = None):
     """Send a 'nothing found' reply for manual runs."""
+    sources_line = " &bull; ".join(sources) if sources else "all sources"
     _send(
         subject="JobAlerts — No new positions found",
         html=f"""
@@ -31,7 +32,7 @@ def send_no_jobs_email():
         No new positions matching your criteria were found at this time.
       </p>
       <p style="font-size:13px;color:#999;margin:0;">
-        LinkedIn &bull; jobscout24.ch &bull; jobagent.ch &mdash; all checked.
+        {sources_line} &mdash; all checked.
       </p>
     </div>
   </div>

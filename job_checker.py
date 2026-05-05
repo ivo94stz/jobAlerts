@@ -48,7 +48,8 @@ def run_job_check(manual: bool = False):
         send_email(new_jobs)
     elif manual:
         log.info("Manual run — sending 'no new jobs' notification.")
-        send_no_jobs_email()
+        sources = [getattr(s, "SOURCE", s.__name__.split(".")[-1]) for s in SCRAPERS]
+        send_no_jobs_email(sources)
 
 
 def run_weekly_digest():
